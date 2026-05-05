@@ -188,31 +188,6 @@ function Index() {
           </div>
         )}
 
-        {tabs.length > 0 && (currentNotes.guitar || currentNotes.bass || currentNotes.piano) && (
-          <div className="mx-auto mt-8 max-w-md rounded-lg border border-border bg-primary/5 p-6">
-            <h3 className="font-semibold mb-3 text-sm">Nota Actual</h3>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="text-center p-3 rounded-lg bg-background border border-border">
-                <p className="text-xs text-muted-foreground mb-1">🎸 Guitarra</p>
-                <p className="text-xl font-bold text-primary">
-                  {currentNotes.guitar || "-"}
-                </p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-background border border-border">
-                <p className="text-xs text-muted-foreground mb-1">🎸 Bajo</p>
-                <p className="text-xl font-bold text-primary">
-                  {currentNotes.bass || "-"}
-                </p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-background border border-border">
-                <p className="text-xs text-muted-foreground mb-1">🎹 Piano</p>
-                <p className="text-xl font-bold text-primary">
-                  {currentNotes.piano || "-"}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {tabs.length === 0 && !isProcessing && (
           <div className="mt-20 grid gap-4 sm:grid-cols-3">
