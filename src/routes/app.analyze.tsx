@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Music, Download, Loader2, AlertCircle, Upload } from "lucide-react";
 import { detectPitch, generateGuiTabs, generateBassTabs, generatePianoNotation } from "@/utils/audioAnalyzer";
@@ -11,22 +10,11 @@ interface TabLine {
   notation: string;
 }
 
-// Configurar la URL del backend - ACTUALIZA ESTO CON TU URL DE RAILWAY
-const API_URL = process.env.VITE_API_URL ||
-  (typeof window !== "undefined" && window.location.hostname === "localhost"
-    ? "http://localhost:3001"
-    : "https://your-solo-notes-production.up.railway.app");
-
 export const Route = createFileRoute("/app/analyze")({
   component: AnalyzePage,
-  validateSearch: (search: Record<string, any>) => ({
-    url: search.url as string,
-  }),
 });
 
 function AnalyzePage() {
-  const search = Route.useSearch();
-  const [youtubeUrl, setYoutubeUrl] = useState(search.url || "");
   const [isProcessing, setIsProcessing] = useState(false);
   const [tabs, setTabs] = useState<TabLine[]>([]);
   const [error, setError] = useState<string>("");
@@ -34,28 +22,9 @@ function AnalyzePage() {
   const [progress, setProgress] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (search.url) {
-      setYoutubeUrl(search.url);
-    }
-  }, [search.url]);
-
-  const extractVideoId = (url: string): string | null => {
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-      /^([a-zA-Z0-9_-]{11})$/,
-    ];
-
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) return match[1];
-    }
-    return null;
-  };
-
   const analyzeAudioBuffer = async (audioBuffer: AudioBuffer, name: string) => {
     setFileName(name);
-    setProgress("Detectando notas...");
+    setProgress("Detectando notas del solo...");
 
     const detectedNotes = await detectPitch(audioBuffer);
 
@@ -92,60 +61,7 @@ function AnalyzePage() {
       await analyzeAudioBuffer(audioBuffer, file.name);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error desconocido";
-      setError(`Error al procesar archivo: ${message}`);
-    } finally {
-      setIsProcessing(false);
-      setProgress("");
-    }
-  };
-
-  const handleYoutubeUrl = async () => {
-    if (!youtubeUrl.trim()) {
-      setError("Por favor ingresa una URL de YouTube");
-      return;
-    }
-
-    setIsProcessing(true);
-    setError("");
-    setTabs([]);
-    setProgress("");
-
-    try {
-      const videoId = extractVideoId(youtubeUrl);
-      if (!videoId) {
-        throw new Error("URL de YouTube inválida");
-      }
-
-      setFileName(`YouTube: ${videoId}`);
-      setProgress("Descargando audio desde YouTube...");
-
-      const response = await fetch(`${API_URL}/api/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoUrl: youtubeUrl }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error descargando audio");
-      }
-
-      setProgress("Procesando audio...");
-      const data = await response.json();
-
-      const binaryString = atob(data.audioBase64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
-
-      await analyzeAudioBuffer(audioBuffer, `YouTube: ${videoId}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Error desconocido";
-      setError(message);
+      setError(`Error: ${message}`);
     } finally {
       setIsProcessing(false);
       setProgress("");
@@ -166,51 +82,33 @@ function AnalyzePage() {
   return (
     <div className="space-y-6 pb-12">
       <div className="rounded-2xl border border-border bg-gradient-card p-6 shadow-elegant">
-        <h1 className="text-2xl font-bold">Analizar Canción</h1>
+        <h1 className="text-2xl font-bold">Extraer Solos de Música</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Pega un enlace de YouTube o carga un archivo de audio para extraer tablaturas
+          Carga un archivo de audio o video para extraer las tablaturas de guitarra, bajo y piano
         </p>
 
         <div className="mt-6 space-y-4">
-          {/* YouTube Input */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Enlace de YouTube</label>
-            <div className="flex gap-2">
-              <Input
-                type="url"
-                placeholder="https://youtube.com/watch?v=..."
-                value={youtubeUrl}
-                onChange={(e) => setYoutubeUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleYoutubeUrl()}
-              />
-              <Button
-                onClick={handleYoutubeUrl}
-                disabled={isProcessing || !youtubeUrl.trim()}
-                size="lg"
-              >
-                Analizar
-              </Button>
-            </div>
-          </div>
-
           {/* File Upload */}
-          <div>
-            <label className="text-sm font-medium block mb-2">O carga un archivo de audio</label>
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="cursor-pointer rounded-lg border-2 border-dashed border-border p-8 text-center transition-colors hover:border-primary hover:bg-muted/50"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="audio/*"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-2 font-medium text-sm">Haz clic para cargar un archivo</p>
-              <p className="text-xs text-muted-foreground">MP3, WAV, FLAC, M4A, etc.</p>
-            </div>
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="cursor-pointer rounded-lg border-2 border-dashed border-border p-12 text-center transition-colors hover:border-primary hover:bg-muted/50"
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*,video/*"
+              onChange={handleFileUpload}
+              disabled={isProcessing}
+              className="hidden"
+            />
+            <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
+            <p className="mt-3 font-semibold text-lg">Haz clic para cargar un archivo</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Audio: MP3, WAV, FLAC, M4A, OGG
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Video: MP4, WebM, Ogg
+            </p>
           </div>
 
           {fileName && (
@@ -220,10 +118,10 @@ function AnalyzePage() {
           )}
 
           {isProcessing && (
-            <div className="flex items-center gap-2 rounded-lg bg-muted p-4">
-              <Loader2 className="h-5 w-5 animate-spin" />
+            <div className="flex items-center gap-3 rounded-lg bg-muted p-4">
+              <Loader2 className="h-6 w-6 animate-spin flex-shrink-0" />
               <div>
-                <p className="font-medium text-sm">Procesando...</p>
+                <p className="font-medium">Procesando...</p>
                 <p className="text-xs text-muted-foreground">{progress}</p>
               </div>
             </div>
@@ -243,7 +141,7 @@ function AnalyzePage() {
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Music className="h-5 w-5" />
-              <h2 className="font-semibold">Tablaturas Analizadas</h2>
+              <h2 className="font-semibold">Tablaturas Extraídas</h2>
             </div>
             <Button onClick={downloadTab} size="sm" variant="outline">
               <Download className="h-4 w-4" />
@@ -254,8 +152,8 @@ function AnalyzePage() {
           <div className="space-y-6">
             {tabs.map((tab, idx) => (
               <div key={idx}>
-                <h3 className="mb-3 font-medium text-sm">{tab.instrument}</h3>
-                <pre className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-xs leading-relaxed">
+                <h3 className="mb-3 font-medium">{tab.instrument}</h3>
+                <pre className="overflow-x-auto rounded-lg bg-muted p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words">
                   {tab.notation}
                 </pre>
               </div>
