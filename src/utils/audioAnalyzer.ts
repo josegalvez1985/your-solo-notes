@@ -303,6 +303,46 @@ export const generatePianoNotation = (notes: Note[]): string => {
   return notation || "No se detectaron notas";
 };
 
+export const extractFretboardNotes = (
+  notes: Note[],
+  instrument: "guitar" | "bass"
+): Array<{ string: string; fret: number }> => {
+  if (notes.length === 0) return [];
+
+  const stringTuning =
+    instrument === "guitar"
+      ? { e: 64, B: 59, G: 55, D: 50, A: 45, E: 40 }
+      : { G: 43, D: 38, A: 33, E: 28 };
+
+  const result: Array<{ string: string; fret: number }> = [];
+  const stringOrder = instrument === "guitar" ? ["e", "B", "G", "D", "A", "E"] : ["G", "D", "A", "E"];
+
+  const groupedNotes = [];
+  let lastTime = -1;
+
+  for (const note of notes) {
+    if (note.time - lastTime > 0.2) {
+      groupedNotes.push(note);
+      lastTime = note.time;
+    }
+  }
+
+  for (const note of groupedNotes) {
+    const midiNote = frequencyToMidi(note.frequency);
+
+    for (const stringName of stringOrder) {
+      const tuning = stringTuning[stringName as keyof typeof stringTuning];
+      const fret = midiNote - tuning;
+      if (fret >= 0 && fret <= (instrument === "guitar" ? 22 : 24)) {
+        result.push({ string: stringName, fret });
+        break;
+      }
+    }
+  }
+
+  return result;
+};
+
 export const generateNotesGroupedByMinute = (notes: Note[]): { minute: number; guitar: string; bass: string }[] => {
   if (notes.length === 0) return [];
 
