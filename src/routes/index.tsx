@@ -2,9 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Music, Download, Loader2, Upload, Sparkles, Guitar } from "lucide-react";
-import { detectPitch, generateGuiTabs, generateBassTabs, generatePianoNotation, generateNotesGroupedByMinute, extractFretboardNotes } from "@/utils/audioAnalyzer";
+import { detectPitch, generateGuiTabs, generateBassTabs, generatePianoNotation, generateNotesGroupedByMinute } from "@/utils/audioAnalyzer";
 import { TabRenderer } from "@/components/TabRenderer";
-import { Fretboard } from "@/components/Fretboard";
 
 interface TabLine {
   instrument: string;
@@ -23,8 +22,6 @@ function Index() {
   const [audioUrl, setAudioUrl] = useState<string>("");
   const [currentNotes, setCurrentNotes] = useState<{ [key: string]: string }>({});
   const [notesGrouped, setNotesGrouped] = useState<{ minute: number; guitar: string; bass: string }[]>([]);
-  const [guitarFretboardNotes, setGuitarFretboardNotes] = useState<Array<{ string: string; fret: number }>>([]);
-  const [bassFretboardNotes, setBassFretboardNotes] = useState<Array<{ string: string; fret: number }>>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -65,8 +62,6 @@ function Index() {
       const bassTab = generateBassTabs(detectedNotes);
       const pianoNotes = generatePianoNotation(detectedNotes);
       const groupedByMinute = generateNotesGroupedByMinute(detectedNotes);
-      const guitarFrets = extractFretboardNotes(detectedNotes, "guitar");
-      const bassFrets = extractFretboardNotes(detectedNotes, "bass");
 
       setTabs([
         { instrument: "🎸 Guitarra", notation: guitarTab },
@@ -74,8 +69,6 @@ function Index() {
         { instrument: "🎹 Piano", notation: pianoNotes },
       ]);
       setNotesGrouped(groupedByMinute);
-      setGuitarFretboardNotes(guitarFrets);
-      setBassFretboardNotes(bassFrets);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error desconocido";
       setError(message);
@@ -231,23 +224,7 @@ function Index() {
             </Button>
           </div>
 
-          <div className="space-y-8">
-            {/* Fretboards */}
-            {guitarFretboardNotes.length > 0 && (
-              <div className="rounded-2xl border border-border bg-gradient-card p-5 shadow-elegant">
-                <h3 className="font-semibold mb-4 text-sm">🎸 Guitarra - Diapasón</h3>
-                <Fretboard notes={guitarFretboardNotes} instrument="guitar" />
-              </div>
-            )}
-
-            {bassFretboardNotes.length > 0 && (
-              <div className="rounded-2xl border border-border bg-gradient-card p-5 shadow-elegant">
-                <h3 className="font-semibold mb-4 text-sm">🎸 Bajo - Diapasón</h3>
-                <Fretboard notes={bassFretboardNotes} instrument="bass" />
-              </div>
-            )}
-
-            {/* Tabs */}
+          <div className="space-y-4">
             {tabs.map((tab, idx) => (
               <div
                 key={idx}
