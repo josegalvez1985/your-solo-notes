@@ -29,8 +29,8 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "TuSolo — Solos y tablaturas desde YouTube" },
+      { name: "description", content: "Pega un link de YouTube y descubre las notas del solo de guitarra, bajo, piano o violín." },
       { name: "author", content: "TuSolo" },
       { property: "og:title", content: "TuSolo — Aprende los solos de tus canciones favoritas" },
       { property: "og:description", content: "Pega un link de YouTube y obtén las notas y tablaturas del solo." },
