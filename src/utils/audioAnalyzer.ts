@@ -134,18 +134,14 @@ const computeAutoCorrelationFast = (frame: Float32Array): Float32Array | null =>
 export const generateGuiTabs = (notes: Note[]): string => {
   if (notes.length === 0) return "No se detectaron notas para guitarra";
 
-  const strings: Record<string, string[]> = {
-    E: [], A: [], D: [], G: [], B: [], e: [],
-  };
-
   const standardTuning: Record<string, number> = {
-    E: 40, A: 45, D: 50, G: 55, B: 59, e: 64,
+    e: 64, B: 59, G: 55, D: 50, A: 45, E: 40,
   };
 
-  // Agrupar notas cercanas para no saturar
   const groupedNotes = [];
   let lastTime = -1;
 
+  // Agrupar notas cercanas para no saturar
   for (const note of notes) {
     if (note.time - lastTime > 0.2) {
       groupedNotes.push(note);
@@ -153,72 +149,68 @@ export const generateGuiTabs = (notes: Note[]): string => {
     }
   }
 
+  let tab = "";
   for (const note of groupedNotes) {
     const midiNote = frequencyToMidi(note.frequency);
     let placed = false;
 
-    // Buscar la cuerda más baja posible
-    for (const stringName of ["E", "A", "D", "G", "B", "e"]) {
+    // Buscar la cuerda más adecuada (de arriba a abajo)
+    for (const stringName of ["e", "B", "G", "D", "A", "E"]) {
       const tuning = standardTuning[stringName];
       const fret = midiNote - tuning;
       if (fret >= 0 && fret <= 22) {
-        strings[stringName].push(String(fret));
+        tab += `${stringName}${fret} `;
         placed = true;
         break;
       }
     }
 
     if (!placed) {
-      // Si no cabe en ninguna cuerda, poner guión en todas
-      for (const stringName of ["E", "A", "D", "G", "B", "e"]) {
-        strings[stringName].push("-");
-      }
+      tab += "- ";
     }
   }
 
-  // Formatear con guiones entre notas
-  let tab = "";
-  tab += "E |" + strings.E.join("-") + "|\n";
-  tab += "B |" + strings.B.join("-") + "|\n";
-  tab += "G |" + strings.G.join("-") + "|\n";
-  tab += "D |" + strings.D.join("-") + "|\n";
-  tab += "A |" + strings.A.join("-") + "|\n";
-  tab += "E |" + strings.E.join("-") + "|\n";
-
-  return tab || "No se pudieron generar tablaturas";
+  return tab.trim() || "No se pudieron generar tablaturas";
 };
 
 export const generateBassTabs = (notes: Note[]): string => {
   if (notes.length === 0) return "No se detectaron notas para bajo";
 
-  const strings: Record<string, (number | string)[]> = { G: [], D: [], A: [], E: [] };
-  const bassTuning: Record<string, number> = { E: 28, A: 33, D: 38, G: 43 };
+  const bassTuning: Record<string, number> = { G: 43, D: 38, A: 33, E: 28 };
 
+  const groupedNotes = [];
+  let lastTime = -1;
+
+  // Agrupar notas cercanas
   for (const note of notes) {
+    if (note.time - lastTime > 0.2) {
+      groupedNotes.push(note);
+      lastTime = note.time;
+    }
+  }
+
+  let tab = "";
+  for (const note of groupedNotes) {
     const midiNote = frequencyToMidi(note.frequency);
     let placed = false;
 
-    for (const [string, tuning] of Object.entries(bassTuning)) {
+    // Buscar la cuerda más adecuada (de arriba a abajo)
+    for (const stringName of ["G", "D", "A", "E"]) {
+      const tuning = bassTuning[stringName];
       const fret = midiNote - tuning;
       if (fret >= 0 && fret <= 24) {
-        strings[string].push(fret);
+        tab += `${stringName}${fret} `;
         placed = true;
         break;
       }
     }
 
     if (!placed) {
-      strings.E.push("-");
+      tab += "- ";
     }
   }
 
-  let tab = "";
-  tab += "G|" + strings.G.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
-  tab += "D|" + strings.D.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
-  tab += "A|" + strings.A.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
-  tab += "E|" + strings.E.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
-
-  return tab || "No se pudieron generar tablaturas";
+  return tab.trim() || "No se pudieron generar tablaturas";
 };
 
 export const generatePianoNotation = (notes: Note[]): string => {
