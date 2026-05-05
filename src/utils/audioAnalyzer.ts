@@ -134,6 +134,7 @@ const computeAutoCorrelationFast = (frame: Float32Array): Float32Array | null =>
 export const generateGuiTabs = (notes: Note[]): string => {
   if (notes.length === 0) return "No se detectaron notas para guitarra";
 
+  const stringOrder = ["e", "B", "G", "D", "A", "E"];
   const standardTuning: Record<string, number> = {
     e: 64, B: 59, G: 55, D: 50, A: 45, E: 40,
   };
@@ -141,7 +142,6 @@ export const generateGuiTabs = (notes: Note[]): string => {
   const groupedNotes = [];
   let lastTime = -1;
 
-  // Agrupar notas cercanas para no saturar
   for (const note of notes) {
     if (note.time - lastTime > 0.2) {
       groupedNotes.push(note);
@@ -149,39 +149,73 @@ export const generateGuiTabs = (notes: Note[]): string => {
     }
   }
 
-  let tab = "";
+  // Crear matriz de cuerdas
+  const strings: Record<string, string[]> = {
+    e: [], B: [], G: [], D: [], A: [], E: [],
+  };
+
   for (const note of groupedNotes) {
     const midiNote = frequencyToMidi(note.frequency);
     let placed = false;
 
-    // Buscar la cuerda más adecuada (de arriba a abajo)
-    for (const stringName of ["e", "B", "G", "D", "A", "E"]) {
+    for (const stringName of stringOrder) {
       const tuning = standardTuning[stringName];
       const fret = midiNote - tuning;
       if (fret >= 0 && fret <= 22) {
-        tab += `${stringName}${fret} `;
+        strings[stringName].push(String(fret).padStart(2, "-"));
         placed = true;
         break;
       }
     }
 
     if (!placed) {
-      tab += "- ";
+      for (const stringName of stringOrder) {
+        strings[stringName].push("--");
+      }
+    }
+
+    // Agregar separadores para las cuerdas que no fueron utilizadas
+    if (placed) {
+      for (const stringName of stringOrder) {
+        if (!strings[stringName][strings[stringName].length - 1]?.startsWith("-")) {
+          // Ya fue agregado
+        } else if (strings[stringName][strings[stringName].length - 1] === "--") {
+          // Ya fue agregado como vacío
+        } else {
+          strings[stringName].push("--");
+        }
+      }
     }
   }
 
-  return tab.trim() || "No se pudieron generar tablaturas";
+  // Normalizar longitudes
+  const maxLen = Math.max(...Object.values(strings).map((s) => s.length));
+  for (const stringName of stringOrder) {
+    while (strings[stringName].length < maxLen) {
+      strings[stringName].push("--");
+    }
+  }
+
+  let tab = "";
+  tab += "e|" + strings.e.join("-") + "|\n";
+  tab += "B|" + strings.B.join("-") + "|\n";
+  tab += "G|" + strings.G.join("-") + "|\n";
+  tab += "D|" + strings.D.join("-") + "|\n";
+  tab += "A|" + strings.A.join("-") + "|\n";
+  tab += "E|" + strings.E.join("-") + "|\n";
+
+  return tab || "No se pudieron generar tablaturas";
 };
 
 export const generateBassTabs = (notes: Note[]): string => {
   if (notes.length === 0) return "No se detectaron notas para bajo";
 
+  const stringOrder = ["G", "D", "A", "E"];
   const bassTuning: Record<string, number> = { G: 43, D: 38, A: 33, E: 28 };
 
   const groupedNotes = [];
   let lastTime = -1;
 
-  // Agrupar notas cercanas
   for (const note of notes) {
     if (note.time - lastTime > 0.2) {
       groupedNotes.push(note);
@@ -189,28 +223,60 @@ export const generateBassTabs = (notes: Note[]): string => {
     }
   }
 
-  let tab = "";
+  // Crear matriz de cuerdas
+  const strings: Record<string, string[]> = {
+    G: [], D: [], A: [], E: [],
+  };
+
   for (const note of groupedNotes) {
     const midiNote = frequencyToMidi(note.frequency);
     let placed = false;
 
-    // Buscar la cuerda más adecuada (de arriba a abajo)
-    for (const stringName of ["G", "D", "A", "E"]) {
+    for (const stringName of stringOrder) {
       const tuning = bassTuning[stringName];
       const fret = midiNote - tuning;
       if (fret >= 0 && fret <= 24) {
-        tab += `${stringName}${fret} `;
+        strings[stringName].push(String(fret).padStart(2, "-"));
         placed = true;
         break;
       }
     }
 
     if (!placed) {
-      tab += "- ";
+      for (const stringName of stringOrder) {
+        strings[stringName].push("--");
+      }
+    }
+
+    // Agregar separadores para las cuerdas que no fueron utilizadas
+    if (placed) {
+      for (const stringName of stringOrder) {
+        if (!strings[stringName][strings[stringName].length - 1]?.startsWith("-")) {
+          // Ya fue agregado
+        } else if (strings[stringName][strings[stringName].length - 1] === "--") {
+          // Ya fue agregado como vacío
+        } else {
+          strings[stringName].push("--");
+        }
+      }
     }
   }
 
-  return tab.trim() || "No se pudieron generar tablaturas";
+  // Normalizar longitudes
+  const maxLen = Math.max(...Object.values(strings).map((s) => s.length));
+  for (const stringName of stringOrder) {
+    while (strings[stringName].length < maxLen) {
+      strings[stringName].push("--");
+    }
+  }
+
+  let tab = "";
+  tab += "G|" + strings.G.join("-") + "|\n";
+  tab += "D|" + strings.D.join("-") + "|\n";
+  tab += "A|" + strings.A.join("-") + "|\n";
+  tab += "E|" + strings.E.join("-") + "|\n";
+
+  return tab || "No se pudieron generar tablaturas";
 };
 
 export const generatePianoNotation = (notes: Note[]): string => {
