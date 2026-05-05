@@ -10,22 +10,22 @@ export function TabRenderer({ tabNotation, instrument, currentTime }: TabRendere
   const preRef = useRef<HTMLPreElement>(null);
 
   useEffect(() => {
-    const pre = preRef.current;
-    if (!pre || !tabNotation) return;
+    if (!preRef.current || !tabNotation) return;
 
     const lines = tabNotation.split("\n");
-    const totalNotes = lines[0]?.match(/\d+/g)?.length || 0;
-    const timePerNote = currentTime / (totalNotes || 1);
+    const charWidth = 8;
+    const estimatedDuration = lines[0]?.length || 1;
+    const scrollPixels = (currentTime / (estimatedDuration / 20)) * charWidth;
 
-    const scrollPos = Math.max(0, currentTime * 10);
-    pre.style.transform = `translateX(${Math.min(0, -scrollPos)}px)`;
+    preRef.current.scrollLeft = Math.max(0, scrollPixels);
   }, [currentTime, tabNotation]);
 
   return (
-    <div className="w-full overflow-x-auto bg-muted rounded-lg p-4 border border-border">
+    <div className="w-full bg-muted rounded-lg border border-border overflow-x-auto">
       <pre
         ref={preRef}
-        className="text-xs leading-relaxed whitespace-pre-wrap break-words font-mono transition-transform duration-75"
+        className="text-xs leading-relaxed whitespace-pre font-mono p-4 transition-all duration-100"
+        style={{ minHeight: "120px" }}
       >
         {tabNotation}
       </pre>
