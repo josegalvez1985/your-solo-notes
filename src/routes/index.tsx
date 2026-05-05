@@ -38,11 +38,14 @@ function Index() {
     setFileName(file.name);
 
     try {
+      // Crear la URL para reproducción ANTES de leer como ArrayBuffer
       const audioUrl = URL.createObjectURL(file);
       if (audioRef.current) {
         audioRef.current.src = audioUrl;
+        audioRef.current.load();
       }
 
+      // Leer el archivo de nuevo para el análisis (ArrayBuffer separado)
       const arrayBuffer = await file.arrayBuffer();
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -262,11 +265,7 @@ function Index() {
               </div>
               <audio
                 ref={audioRef}
-                crossOrigin="anonymous"
-                onError={(e) => {
-                  console.error("Error cargando audio:", e);
-                  setError("Error al cargar el archivo de audio");
-                }}
+                onError={() => setError("Error al cargar el archivo de audio")}
               />
               <p className="text-xs text-muted-foreground text-center">
                 {fileName}
