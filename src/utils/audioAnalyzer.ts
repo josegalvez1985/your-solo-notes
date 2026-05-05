@@ -30,10 +30,17 @@ export const detectPitch = async (audioBuffer: AudioBuffer): Promise<Note[]> => 
   const sampleRate = audioBuffer.sampleRate;
   const notes: Note[] = [];
 
-  const frameSize = 4096;
-  const hopSize = frameSize / 2;
+  // Limitar análisis a 60 segundos máximo para no bloquear UI
+  const maxSamples = Math.min(sampleRate * 60, channelData.length);
+  const frameSize = 2048; // Reducir tamaño de frame para más velocidad
+  const hopSize = frameSize; // Sin solapamiento para más velocidad
 
-  for (let i = 0; i < channelData.length - frameSize; i += hopSize) {
+  for (let i = 0; i < maxSamples - frameSize; i += hopSize) {
+    // Permitir que el navegador responda cada 0.5 segundos
+    if (i % (sampleRate / 2) === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
     const frame = new Float32Array(frameSize);
     for (let j = 0; j < frameSize; j++) {
       frame[j] = channelData[i + j] || 0;
@@ -41,16 +48,15 @@ export const detectPitch = async (audioBuffer: AudioBuffer): Promise<Note[]> => 
 
     const { frequency, confidence } = detectFramePitch(frame, sampleRate);
 
-    if (frequency > 60 && frequency < 2000 && confidence > 0.7) {
+    if (frequency > 60 && frequency < 2000 && confidence > 0.6) {
       const { note, octave } = frequencyToNote(frequency);
       const time = i / sampleRate;
 
-      // Evitar duplicados muy cercanos
       const lastNote = notes[notes.length - 1];
       if (
         !lastNote ||
-        Math.abs(lastNote.frequency - frequency) > 10 ||
-        time - lastNote.time > 0.1
+        Math.abs(lastNote.frequency - frequency) > 15 ||
+        time - lastNote.time > 0.15
       ) {
         notes.push({ frequency, note, octave, time, confidence });
       }
@@ -64,8 +70,17 @@ const detectFramePitch = (
   frame: Float32Array,
   sampleRate: number
 ): { frequency: number; confidence: number } => {
-  const autoCorr = computeAutoCorrelation(frame);
-  if (!autoCorr || autoCorr.length === 0) {
+  // Usar FFT simplificado en lugar de autocorrelación completa
+  const rms = Math.sqrt(
+    frame.reduce((sum, s) => sum + s * s, 0) / frame.length
+  );
+
+  if (rms < 0.01) {
+    return { frequency: -1, confidence: 0 };
+  }
+
+  const autoCorr = computeAutoCorrelationFast(frame);
+  if (!autoCorr) {
     return { frequency: -1, confidence: 0 };
   }
 
@@ -73,16 +88,16 @@ const detectFramePitch = (
   let maxCorr = 0;
 
   const minPeriod = Math.floor(sampleRate / 2000);
-  const maxPeriod = Math.floor(sampleRate / 60);
+  const maxPeriod = Math.floor(sampleRate / 50);
 
-  for (let offset = minPeriod; offset < maxPeriod && offset < autoCorr.length; offset++) {
+  for (let offset = minPeriod; offset < Math.min(maxPeriod, autoCorr.length); offset++) {
     if (autoCorr[offset] > maxCorr) {
       maxCorr = autoCorr[offset];
       bestOffset = offset;
     }
   }
 
-  if (bestOffset === 0 || maxCorr === 0) {
+  if (bestOffset === 0 || maxCorr < 0.5) {
     return { frequency: -1, confidence: 0 };
   }
 
@@ -92,24 +107,25 @@ const detectFramePitch = (
   return { frequency, confidence };
 };
 
-const computeAutoCorrelation = (frame: Float32Array): Float32Array | null => {
-  const result = new Float32Array(frame.length);
-  const length = frame.length;
+const computeAutoCorrelationFast = (frame: Float32Array): Float32Array | null => {
+  const length = Math.min(frame.length, 2048); // Limitar a 2048 para velocidad
+  const result = new Float32Array(length);
 
-  for (let lag = 0; lag < length; lag++) {
-    let sum = 0;
-    for (let i = 0; i < length - lag; i++) {
-      sum += frame[i] * frame[i + lag];
-    }
-    result[lag] = sum / (length - lag);
+  let sum = 0;
+  for (let i = 0; i < length; i++) {
+    sum += frame[i] * frame[i];
   }
 
-  // Normalizar
-  const maxVal = Math.max(...Array.from(result));
-  if (maxVal > 0) {
-    for (let i = 0; i < result.length; i++) {
-      result[i] /= maxVal;
+  if (sum === 0) return null;
+
+  result[0] = 1;
+
+  for (let lag = 1; lag < length; lag++) {
+    let corr = 0;
+    for (let i = 0; i < length - lag; i++) {
+      corr += frame[i] * frame[i + lag];
     }
+    result[lag] = corr / sum;
   }
 
   return result;
