@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Music, Download, Loader2, Upload, Sparkles, Guitar } from "lucide-react";
-import { detectPitch, generateGuiTabs, generateBassTabs, generatePianoNotation, generateNotesGroupedByMinute } from "@/utils/audioAnalyzer";
+import { Music, Download, Loader2, Sparkles, Guitar, Youtube } from "lucide-react";
+import { detectPitch, generateGuiTabs, generateBassTabs, generateNotesGroupedByMinute } from "@/utils/audioAnalyzer";
 import { TabRenderer } from "@/components/TabRenderer";
+import { fetchYoutubeAudio, isNativeAvailable } from "@/lib/youtube";
 
 interface TabLine {
   instrument: string;
@@ -15,100 +16,63 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [url, setUrl] = useState("");
+  const [stage, setStage] = useState<"idle" | "downloading" | "analyzing" | "done">("idle");
   const [tabs, setTabs] = useState<TabLine[]>([]);
   const [error, setError] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [audioUrl, setAudioUrl] = useState<string>("");
-  const [currentNotes, setCurrentNotes] = useState<{ [key: string]: string }>({});
+  const [title, setTitle] = useState("");
+  const [playbackUrl, setPlaybackUrl] = useState("");
   const [notesGrouped, setNotesGrouped] = useState<{ minute: number; guitar: string; bass: string }[]>([]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const allNotesRef = useRef<any[]>([]);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const isProcessing = stage === "downloading" || stage === "analyzing";
 
-    setIsProcessing(true);
+  const handleExtract = async () => {
+    if (!url.trim()) return;
     setError("");
     setTabs([]);
-    setFileName(file.name);
-
-    // Liberar URL anterior si existe
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-    }
-
-    // Crear URL para el reproductor INMEDIATAMENTE
-    const url = URL.createObjectURL(file);
-    setAudioUrl(url);
+    setNotesGrouped([]);
+    setPlaybackUrl("");
+    setTitle("");
+    setStage("downloading");
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-      const detectedNotes = await detectPitch(audioBuffer);
-
-      if (detectedNotes.length === 0) {
-        throw new Error("No se detectaron notas. Intenta con otro archivo.");
+      if (!isNativeAvailable()) {
+        throw new Error(
+          "Esta función requiere la app instalada en Android. En navegador no hay forma de extraer audio de YouTube sin servidor.",
+        );
       }
 
-      allNotesRef.current = detectedNotes;
+      const { audioBuffer, title: ytTitle, playbackUrl: ytPlayback } = await fetchYoutubeAudio(url.trim());
+      setTitle(ytTitle);
+      setPlaybackUrl(ytPlayback);
 
-      const guitarTab = generateGuiTabs(detectedNotes);
-      const bassTab = generateBassTabs(detectedNotes);
-      const pianoNotes = generatePianoNotation(detectedNotes);
-      const groupedByMinute = generateNotesGroupedByMinute(detectedNotes);
+      setStage("analyzing");
+      const detectedNotes = await detectPitch(audioBuffer);
+      if (detectedNotes.length === 0) {
+        throw new Error("No se detectaron notas en el audio.");
+      }
 
       setTabs([
-        { instrument: "🎸 Guitarra", notation: guitarTab },
-        { instrument: "🎸 Bajo", notation: bassTab },
-        { instrument: "🎹 Piano", notation: pianoNotes },
+        { instrument: "🎸 Guitarra", notation: generateGuiTabs(detectedNotes) },
+        { instrument: "🎸 Bajo", notation: generateBassTabs(detectedNotes) },
       ]);
-      setNotesGrouped(groupedByMinute);
+      setNotesGrouped(generateNotesGroupedByMinute(detectedNotes));
+      setStage("done");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Error desconocido";
-      setError(message);
-    } finally {
-      setIsProcessing(false);
+      setError(err instanceof Error ? err.message : "Error desconocido");
+      setStage("idle");
     }
   };
-
-  const handleTimeUpdate = () => {
-    if (!audioRef.current || allNotesRef.current.length === 0) return;
-
-    const currentTime = audioRef.current.currentTime;
-    const currentNotesList = allNotesRef.current.filter(
-      (note) => note.time <= currentTime && note.time + 0.5 > currentTime
-    );
-
-    if (currentNotesList.length > 0) {
-      const latest = currentNotesList[currentNotesList.length - 1];
-      setCurrentNotes({
-        guitar: `${latest.note}${latest.octave}`,
-        bass: `${latest.note}${latest.octave}`,
-        piano: `${latest.note}${latest.octave}`,
-      });
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [audioUrl]);
 
   const downloadTab = () => {
     if (tabs.length === 0) return;
     const content = tabs.map((t) => `${t.instrument}\n${t.notation}`).join("\n\n---\n\n");
+    const safeTitle = (title || "tablatura").replace(/[^a-z0-9]/gi, "_").slice(0, 60);
     const element = document.createElement("a");
     element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(content));
-    element.setAttribute("download", `tablatura-${fileName.replace(/[^a-z0-9]/gi, "_")}.txt`);
+    element.setAttribute("download", `tablatura-${safeTitle}.txt`);
     element.style.display = "none";
     document.body.appendChild(element);
     element.click();
@@ -130,7 +94,7 @@ function Index() {
       <main className="relative z-10 mx-auto max-w-3xl px-6 pt-12 pb-24 text-center">
         <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/50 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          Extrae solos de tus canciones favoritas
+          Pega un link de YouTube y obtén la tablatura
         </div>
 
         <h1 className="mt-6 text-5xl font-black tracking-tight md:text-7xl">
@@ -142,46 +106,47 @@ function Index() {
         </h1>
 
         <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-          Carga un archivo de audio o video y obtén las tablaturas de guitarra, bajo y piano en segundos.
+          Pega un enlace de YouTube y la app extrae las notas del solo en guitarra y bajo.
         </p>
 
-        <div className="mx-auto mt-8 max-w-md">
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="cursor-pointer rounded-lg border-2 border-dashed border-border p-8 text-center transition-colors hover:border-primary hover:bg-muted/50"
-          >
+        <div className="mx-auto mt-8 max-w-md space-y-3">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-card/50 px-3 py-2 backdrop-blur">
+            <Youtube className="h-5 w-5 text-red-500 shrink-0" />
             <input
-              ref={fileInputRef}
-              type="file"
-              accept="audio/*,video/*"
-              onChange={handleFileUpload}
+              type="url"
+              inputMode="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://youtube.com/watch?v=..."
               disabled={isProcessing}
-              className="hidden"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
             />
-            <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
-            <p className="mt-3 font-semibold">Carga tu archivo</p>
-            <p className="text-xs text-muted-foreground mt-1">MP3, WAV, MP4, etc.</p>
           </div>
+          <Button
+            onClick={handleExtract}
+            disabled={isProcessing || !url.trim()}
+            className="w-full"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {stage === "downloading" ? "Descargando audio..." : "Analizando notas..."}
+              </>
+            ) : (
+              "Extraer solo"
+            )}
+          </Button>
+          {!isNativeAvailable() && (
+            <p className="text-xs text-muted-foreground">
+              ⚠️ Esta función solo funciona en la app instalada (Android). En el navegador es imposible sin servidor.
+            </p>
+          )}
         </div>
 
-        {/* Reproductor nativo HTML5 - SIEMPRE visible cuando hay audio */}
-        {audioUrl && (
+        {playbackUrl && (
           <div className="mx-auto mt-6 max-w-md rounded-lg border border-border p-4 bg-muted/50">
-            <p className="text-xs text-muted-foreground mb-2 truncate">{fileName}</p>
-            <audio
-              ref={audioRef}
-              src={audioUrl}
-              controls
-              onTimeUpdate={handleTimeUpdate}
-              className="w-full"
-            />
-          </div>
-        )}
-
-        {isProcessing && (
-          <div className="mx-auto mt-6 max-w-md flex items-center justify-center gap-2 rounded-lg bg-muted p-4">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Analizando tablaturas...</span>
+            <p className="text-xs text-muted-foreground mb-2 truncate">{title}</p>
+            <audio ref={audioRef} src={playbackUrl} controls className="w-full" />
           </div>
         )}
 
@@ -191,13 +156,12 @@ function Index() {
           </div>
         )}
 
-
-        {tabs.length === 0 && !isProcessing && (
+        {tabs.length === 0 && !isProcessing && !error && (
           <div className="mt-20 grid gap-4 sm:grid-cols-3">
             {[
-              { t: "🎸 Multi-instrumento", d: "Guitarra, bajo, piano" },
-              { t: "⚡ Al instante", d: "Carga tu audio y obtén tablaturas" },
-              { t: "📖 Descargables", d: "Guarda tus tablaturas en .txt" },
+              { t: "🎸 Multi-instrumento", d: "Guitarra y bajo" },
+              { t: "⚡ Directo de YouTube", d: "Pega el link y listo" },
+              { t: "📖 Descargables", d: "Guarda la tablatura en .txt" },
             ].map((f) => (
               <div
                 key={f.t}
@@ -216,7 +180,7 @@ function Index() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <Guitar className="h-5 w-5" />
-              <h2 className="font-semibold">Tablaturas Completas</h2>
+              <h2 className="font-semibold">Tablaturas</h2>
             </div>
             <Button onClick={downloadTab} size="sm" variant="outline">
               <Download className="h-4 w-4" />
@@ -245,7 +209,7 @@ function Index() {
 
           {notesGrouped.length > 0 && (
             <div className="mt-12 rounded-2xl border border-border bg-gradient-card p-6 shadow-elegant">
-              <h2 className="font-semibold mb-6 text-lg">Notas Detectadas por Minuto</h2>
+              <h2 className="font-semibold mb-6 text-lg">Notas detectadas por minuto</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>

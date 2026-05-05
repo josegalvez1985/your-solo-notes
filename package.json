@@ -1,27 +1,26 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "tu-solo",
   "private": true,
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "server": "node server.js",
+    "dev": "vite",
     "build": "vite build",
-    "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@cloudflare/vite-plugin": "^1.25.5",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/filesystem": "^8.1.2",
     "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-router": "^1.168.0",
-    "@tanstack/react-start": "^1.167.14",
     "@tanstack/router-plugin": "^1.167.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.575.0",
+    "pitchy": "^4.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.5.0",
@@ -29,13 +28,13 @@
     "vite-tsconfig-paths": "^6.0.2"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
     "@eslint/js": "^9.32.0",
-    "@lovable.dev/vite-tanstack-config": "^1.4.0",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
-    "concurrently": "^9.2.1",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
@@ -46,9 +45,5 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1"
-  },
-  "optionalDependencies": {
-    "essentia.js": "^0.1.3",
-    "yt-dlp": "npm:null@^2.0.0"
   }
 }

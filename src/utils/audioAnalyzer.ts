@@ -1,3 +1,5 @@
+import { PitchDetector } from "pitchy";
+
 interface Note {
   frequency: number;
   note: string;
@@ -30,105 +32,41 @@ export const detectPitch = async (audioBuffer: AudioBuffer): Promise<Note[]> => 
   const sampleRate = audioBuffer.sampleRate;
   const notes: Note[] = [];
 
-  // Limitar análisis a 60 segundos máximo para no bloquear UI
-  const maxSamples = Math.min(sampleRate * 60, channelData.length);
-  const frameSize = 2048; // Reducir tamaño de frame para más velocidad
-  const hopSize = frameSize; // Sin solapamiento para más velocidad
+  const frameSize = 2048;
+  const hopSize = 1024;
+  const maxSamples = channelData.length;
 
-  for (let i = 0; i < maxSamples - frameSize; i += hopSize) {
-    // Permitir que el navegador responda cada 0.5 segundos
-    if (i % (sampleRate / 2) === 0) {
+  const detector = PitchDetector.forFloat32Array(frameSize);
+  detector.minVolumeDecibels = -40;
+  const frame = new Float32Array(frameSize);
+
+  for (let i = 0; i + frameSize <= maxSamples; i += hopSize) {
+    if (i % (sampleRate * 2) < hopSize) {
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
-    const frame = new Float32Array(frameSize);
     for (let j = 0; j < frameSize; j++) {
-      frame[j] = channelData[i + j] || 0;
+      frame[j] = channelData[i + j];
     }
 
-    const { frequency, confidence } = detectFramePitch(frame, sampleRate);
+    const [frequency, clarity] = detector.findPitch(frame, sampleRate);
 
-    if (frequency > 60 && frequency < 2000 && confidence > 0.6) {
+    if (frequency > 60 && frequency < 2000 && clarity > 0.85) {
       const { note, octave } = frequencyToNote(frequency);
       const time = i / sampleRate;
-
       const lastNote = notes[notes.length - 1];
+
       if (
         !lastNote ||
-        Math.abs(lastNote.frequency - frequency) > 15 ||
-        time - lastNote.time > 0.15
+        Math.abs(lastNote.frequency - frequency) > 5 ||
+        time - lastNote.time > 0.12
       ) {
-        notes.push({ frequency, note, octave, time, confidence });
+        notes.push({ frequency, note, octave, time, confidence: clarity });
       }
     }
   }
 
   return notes;
-};
-
-const detectFramePitch = (
-  frame: Float32Array,
-  sampleRate: number
-): { frequency: number; confidence: number } => {
-  // Usar FFT simplificado en lugar de autocorrelación completa
-  const rms = Math.sqrt(
-    frame.reduce((sum, s) => sum + s * s, 0) / frame.length
-  );
-
-  if (rms < 0.01) {
-    return { frequency: -1, confidence: 0 };
-  }
-
-  const autoCorr = computeAutoCorrelationFast(frame);
-  if (!autoCorr) {
-    return { frequency: -1, confidence: 0 };
-  }
-
-  let bestOffset = 0;
-  let maxCorr = 0;
-
-  const minPeriod = Math.floor(sampleRate / 2000);
-  const maxPeriod = Math.floor(sampleRate / 50);
-
-  for (let offset = minPeriod; offset < Math.min(maxPeriod, autoCorr.length); offset++) {
-    if (autoCorr[offset] > maxCorr) {
-      maxCorr = autoCorr[offset];
-      bestOffset = offset;
-    }
-  }
-
-  if (bestOffset === 0 || maxCorr < 0.5) {
-    return { frequency: -1, confidence: 0 };
-  }
-
-  const frequency = sampleRate / bestOffset;
-  const confidence = Math.min(maxCorr, 1.0);
-
-  return { frequency, confidence };
-};
-
-const computeAutoCorrelationFast = (frame: Float32Array): Float32Array | null => {
-  const length = Math.min(frame.length, 2048); // Limitar a 2048 para velocidad
-  const result = new Float32Array(length);
-
-  let sum = 0;
-  for (let i = 0; i < length; i++) {
-    sum += frame[i] * frame[i];
-  }
-
-  if (sum === 0) return null;
-
-  result[0] = 1;
-
-  for (let lag = 1; lag < length; lag++) {
-    let corr = 0;
-    for (let i = 0; i < length - lag; i++) {
-      corr += frame[i] * frame[i + lag];
-    }
-    result[lag] = corr / sum;
-  }
-
-  return result;
 };
 
 export const generateGuiTabs = (notes: Note[]): string => {
@@ -249,70 +187,6 @@ export const generateBassTabs = (notes: Note[]): string => {
   tab += "E|--" + strings.E.join("--") + "--|\n";
 
   return tab || "No se pudieron generar tablaturas";
-};
-
-export const generatePianoNotation = (notes: Note[]): string => {
-  if (notes.length === 0) return "No se detectaron notas para piano";
-
-  let notation = "Tiempo | Nota | Octava | Confianza\n";
-  notation += "-------|------|--------|----------\n";
-
-  const groupedNotes: Note[] = [];
-  let lastTime = -1;
-
-  for (const note of notes) {
-    if (note.time - lastTime > 0.1) {
-      groupedNotes.push(note);
-      lastTime = note.time;
-    }
-  }
-
-  for (const note of groupedNotes) {
-    const confidence = (note.confidence * 100).toFixed(0);
-    notation += `${note.time.toFixed(2)}s | ${note.note.padEnd(4)} | ${note.octave.toString().padEnd(6)} | ${confidence}%\n`;
-  }
-
-  return notation || "No se detectaron notas";
-};
-
-export const extractFretboardNotes = (
-  notes: Note[],
-  instrument: "guitar" | "bass"
-): Array<{ string: string; fret: number }> => {
-  if (notes.length === 0) return [];
-
-  const stringTuning =
-    instrument === "guitar"
-      ? { e: 64, B: 59, G: 55, D: 50, A: 45, E: 40 }
-      : { G: 43, D: 38, A: 33, E: 28 };
-
-  const result: Array<{ string: string; fret: number }> = [];
-  const stringOrder = instrument === "guitar" ? ["e", "B", "G", "D", "A", "E"] : ["G", "D", "A", "E"];
-
-  const groupedNotes = [];
-  let lastTime = -1;
-
-  for (const note of notes) {
-    if (note.time - lastTime > 0.2) {
-      groupedNotes.push(note);
-      lastTime = note.time;
-    }
-  }
-
-  for (const note of groupedNotes) {
-    const midiNote = frequencyToMidi(note.frequency);
-
-    for (const stringName of stringOrder) {
-      const tuning = stringTuning[stringName as keyof typeof stringTuning];
-      const fret = midiNote - tuning;
-      if (fret >= 0 && fret <= (instrument === "guitar" ? 22 : 24)) {
-        result.push({ string: stringName, fret });
-        break;
-      }
-    }
-  }
-
-  return result;
 };
 
 export const generateNotesGroupedByMinute = (notes: Note[]): { minute: number; guitar: string; bass: string }[] => {
