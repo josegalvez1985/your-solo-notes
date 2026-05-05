@@ -162,7 +162,7 @@ export const generateGuiTabs = (notes: Note[]): string => {
       const tuning = standardTuning[stringName];
       const fret = midiNote - tuning;
       if (fret >= 0 && fret <= 22) {
-        strings[stringName].push(String(fret).padStart(2, "-"));
+        strings[stringName].push(fret.toString());
         placed = true;
         break;
       }
@@ -170,39 +170,25 @@ export const generateGuiTabs = (notes: Note[]): string => {
 
     if (!placed) {
       for (const stringName of stringOrder) {
-        strings[stringName].push("--");
+        strings[stringName].push("-");
       }
-    }
-
-    // Agregar separadores para las cuerdas que no fueron utilizadas
-    if (placed) {
+    } else {
+      // Llenar con guiones las cuerdas no utilizadas
       for (const stringName of stringOrder) {
-        if (!strings[stringName][strings[stringName].length - 1]?.startsWith("-")) {
-          // Ya fue agregado
-        } else if (strings[stringName][strings[stringName].length - 1] === "--") {
-          // Ya fue agregado como vacío
-        } else {
-          strings[stringName].push("--");
+        if (strings[stringName][strings[stringName].length - 1] === undefined) {
+          strings[stringName].push("-");
         }
       }
     }
   }
 
-  // Normalizar longitudes
-  const maxLen = Math.max(...Object.values(strings).map((s) => s.length));
-  for (const stringName of stringOrder) {
-    while (strings[stringName].length < maxLen) {
-      strings[stringName].push("--");
-    }
-  }
-
   let tab = "";
-  tab += "e|" + strings.e.join("-") + "|\n";
-  tab += "B|" + strings.B.join("-") + "|\n";
-  tab += "G|" + strings.G.join("-") + "|\n";
-  tab += "D|" + strings.D.join("-") + "|\n";
-  tab += "A|" + strings.A.join("-") + "|\n";
-  tab += "E|" + strings.E.join("-") + "|\n";
+  tab += "e|--" + strings.e.join("--") + "--|\n";
+  tab += "B|--" + strings.B.join("--") + "--|\n";
+  tab += "G|--" + strings.G.join("--") + "--|\n";
+  tab += "D|--" + strings.D.join("--") + "--|\n";
+  tab += "A|--" + strings.A.join("--") + "--|\n";
+  tab += "E|--" + strings.E.join("--") + "--|\n";
 
   return tab || "No se pudieron generar tablaturas";
 };
@@ -236,7 +222,7 @@ export const generateBassTabs = (notes: Note[]): string => {
       const tuning = bassTuning[stringName];
       const fret = midiNote - tuning;
       if (fret >= 0 && fret <= 24) {
-        strings[stringName].push(String(fret).padStart(2, "-"));
+        strings[stringName].push(fret.toString());
         placed = true;
         break;
       }
@@ -244,37 +230,23 @@ export const generateBassTabs = (notes: Note[]): string => {
 
     if (!placed) {
       for (const stringName of stringOrder) {
-        strings[stringName].push("--");
+        strings[stringName].push("-");
       }
-    }
-
-    // Agregar separadores para las cuerdas que no fueron utilizadas
-    if (placed) {
+    } else {
+      // Llenar con guiones las cuerdas no utilizadas
       for (const stringName of stringOrder) {
-        if (!strings[stringName][strings[stringName].length - 1]?.startsWith("-")) {
-          // Ya fue agregado
-        } else if (strings[stringName][strings[stringName].length - 1] === "--") {
-          // Ya fue agregado como vacío
-        } else {
-          strings[stringName].push("--");
+        if (strings[stringName][strings[stringName].length - 1] === undefined) {
+          strings[stringName].push("-");
         }
       }
     }
   }
 
-  // Normalizar longitudes
-  const maxLen = Math.max(...Object.values(strings).map((s) => s.length));
-  for (const stringName of stringOrder) {
-    while (strings[stringName].length < maxLen) {
-      strings[stringName].push("--");
-    }
-  }
-
   let tab = "";
-  tab += "G|" + strings.G.join("-") + "|\n";
-  tab += "D|" + strings.D.join("-") + "|\n";
-  tab += "A|" + strings.A.join("-") + "|\n";
-  tab += "E|" + strings.E.join("-") + "|\n";
+  tab += "G|--" + strings.G.join("--") + "--|\n";
+  tab += "D|--" + strings.D.join("--") + "--|\n";
+  tab += "A|--" + strings.A.join("--") + "--|\n";
+  tab += "E|--" + strings.E.join("--") + "--|\n";
 
   return tab || "No se pudieron generar tablaturas";
 };
