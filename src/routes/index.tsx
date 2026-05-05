@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Music, Download, Loader2, Upload, Sparkles, Guitar } from "lucide-react";
-import { detectPitch, generateGuiTabs, generateBassTabs, generatePianoNotation } from "@/utils/audioAnalyzer";
+import { detectPitch, generateGuiTabs, generateBassTabs, generatePianoNotation, generateNotesGroupedByMinute } from "@/utils/audioAnalyzer";
 import { TabRenderer } from "@/components/TabRenderer";
 
 interface TabLine {
@@ -21,6 +21,7 @@ function Index() {
   const [fileName, setFileName] = useState("");
   const [audioUrl, setAudioUrl] = useState<string>("");
   const [currentNotes, setCurrentNotes] = useState<{ [key: string]: string }>({});
+  const [notesGrouped, setNotesGrouped] = useState<{ minute: number; guitar: string; bass: string }[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -60,12 +61,14 @@ function Index() {
       const guitarTab = generateGuiTabs(detectedNotes);
       const bassTab = generateBassTabs(detectedNotes);
       const pianoNotes = generatePianoNotation(detectedNotes);
+      const groupedByMinute = generateNotesGroupedByMinute(detectedNotes);
 
       setTabs([
         { instrument: "🎸 Guitarra", notation: guitarTab },
         { instrument: "🎸 Bajo", notation: bassTab },
         { instrument: "🎹 Piano", notation: pianoNotes },
       ]);
+      setNotesGrouped(groupedByMinute);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error desconocido";
       setError(message);
@@ -239,6 +242,32 @@ function Index() {
               </div>
             ))}
           </div>
+
+          {notesGrouped.length > 0 && (
+            <div className="mt-12 rounded-2xl border border-border bg-gradient-card p-6 shadow-elegant">
+              <h2 className="font-semibold mb-6 text-lg">Notas Detectadas por Minuto</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-semibold">Minuto</th>
+                      <th className="text-left py-3 px-4 font-semibold">🎸 Guitarra</th>
+                      <th className="text-left py-3 px-4 font-semibold">Bajo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {notesGrouped.map((row) => (
+                      <tr key={row.minute} className="border-b border-border hover:bg-muted/50">
+                        <td className="py-3 px-4 font-medium">{row.minute}:00</td>
+                        <td className="py-3 px-4 font-mono text-xs">{row.guitar}</td>
+                        <td className="py-3 px-4 font-mono text-xs">{row.bass}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

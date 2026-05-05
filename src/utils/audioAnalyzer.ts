@@ -244,3 +244,65 @@ export const generatePianoNotation = (notes: Note[]): string => {
 
   return notation || "No se detectaron notas";
 };
+
+export const generateNotesGroupedByMinute = (notes: Note[]): { minute: number; guitar: string; bass: string }[] => {
+  if (notes.length === 0) return [];
+
+  const groupedByMinute: { [key: number]: Note[] } = {};
+
+  for (const note of notes) {
+    const minute = Math.floor(note.time / 60);
+    if (!groupedByMinute[minute]) {
+      groupedByMinute[minute] = [];
+    }
+    groupedByMinute[minute].push(note);
+  }
+
+  const standardTuning: Record<string, number> = {
+    E: 40, A: 45, D: 50, G: 55, B: 59, e: 64,
+  };
+  const bassTuning: Record<string, number> = { E: 28, A: 33, D: 38, G: 43 };
+
+  const result: { minute: number; guitar: string; bass: string }[] = [];
+
+  for (const [minute, minuteNotes] of Object.entries(groupedByMinute)) {
+    const guitarFrets: string[] = [];
+    const bassFrets: string[] = [];
+
+    for (const note of minuteNotes) {
+      const midiNote = frequencyToMidi(note.frequency);
+
+      // Guitar
+      let guitarPlaced = false;
+      for (const stringName of ["E", "A", "D", "G", "B", "e"]) {
+        const fret = midiNote - standardTuning[stringName];
+        if (fret >= 0 && fret <= 22) {
+          guitarFrets.push(`${fret}`);
+          guitarPlaced = true;
+          break;
+        }
+      }
+      if (!guitarPlaced) guitarFrets.push("-");
+
+      // Bass
+      let bassPlaced = false;
+      for (const [string, tuning] of Object.entries(bassTuning)) {
+        const fret = midiNote - tuning;
+        if (fret >= 0 && fret <= 24) {
+          bassFrets.push(`${fret}`);
+          bassPlaced = true;
+          break;
+        }
+      }
+      if (!bassPlaced) bassFrets.push("-");
+    }
+
+    result.push({
+      minute: parseInt(minute),
+      guitar: guitarFrets.join(" "),
+      bass: bassFrets.join(" "),
+    });
+  }
+
+  return result.sort((a, b) => a.minute - b.minute);
+};
