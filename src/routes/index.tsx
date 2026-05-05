@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Music, Download, Loader2, Upload, Sparkles, Guitar } from "lucide-react";
 import { detectPitch, generateGuiTabs, generateBassTabs, generatePianoNotation } from "@/utils/audioAnalyzer";
+import { TabRenderer } from "@/components/TabRenderer";
 
 interface TabLine {
   instrument: string;
@@ -252,7 +253,12 @@ function Index() {
                 className="rounded-2xl border border-border bg-gradient-card p-5 shadow-elegant"
               >
                 <h3 className="font-semibold mb-3 text-sm">{tab.instrument}</h3>
-                <pre className="overflow-x-auto bg-muted p-4 rounded text-xs leading-relaxed whitespace-pre-wrap break-words max-h-40">
+                <TabRenderer
+                  tabNotation={tab.notation}
+                  instrument={tab.instrument}
+                  currentTime={audioRef.current?.currentTime || 0}
+                />
+                <pre className="overflow-x-auto bg-muted p-4 rounded text-xs leading-relaxed whitespace-pre-wrap break-words max-h-40 mt-3">
                   {tab.notation}
                 </pre>
               </div>
