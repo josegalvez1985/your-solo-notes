@@ -60,8 +60,10 @@ app.get("/health", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Servidor escuchando en puerto ${PORT}`);
+const HOST = "0.0.0.0";
+
+app.listen(PORT, HOST, () => {
+  console.log(`Servidor escuchando en ${HOST}:${PORT}`);
 });
 
 function downloadAudio(videoUrl, outputPath) {
