@@ -117,12 +117,20 @@ function Index() {
     };
   }, []);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
+      try {
+        if (isPlaying) {
+          audioRef.current.pause();
+        } else {
+          const playPromise = audioRef.current.play();
+          if (playPromise !== undefined) {
+            await playPromise;
+          }
+        }
+      } catch (err) {
+        console.error("Error reproduciendo audio:", err);
+        setError("Error al reproducir. Verifica que el archivo sea válido.");
       }
     }
   };
@@ -226,7 +234,13 @@ function Index() {
                   )}
                 </Button>
                 <div className="flex-1">
-                  <div className="h-1 bg-border rounded-full overflow-hidden">
+                  <div className="h-1 bg-border rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
+                    if (audioRef.current && duration) {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const newTime = (e.clientX - rect.left) / rect.width * duration;
+                      audioRef.current.currentTime = newTime;
+                    }
+                  }}>
                     <div
                       className="h-full bg-primary transition-all"
                       style={{
@@ -240,7 +254,14 @@ function Index() {
                   </div>
                 </div>
               </div>
-              <audio ref={audioRef} />
+              <audio
+                ref={audioRef}
+                crossOrigin="anonymous"
+                onError={(e) => {
+                  console.error("Error cargando audio:", e);
+                  setError("Error al cargar el archivo de audio");
+                }}
+              />
               <p className="text-xs text-muted-foreground text-center">
                 {fileName}
               </p>
