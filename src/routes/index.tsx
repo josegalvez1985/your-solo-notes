@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Music, Download, Loader2, AlertCircle, Upload, Play, Pause } from "lucide-react";
+import { Music, Download, Loader2, AlertCircle, Upload, Play, Pause, Sparkles, Guitar } from "lucide-react";
 import { detectPitch, generateGuiTabs, generateBassTabs, generatePianoNotation } from "@/utils/audioAnalyzer";
 
 interface TabLine {
@@ -38,13 +38,11 @@ function Index() {
     setFileName(file.name);
 
     try {
-      // Crear URL para reproducción
       const audioUrl = URL.createObjectURL(file);
       if (audioRef.current) {
         audioRef.current.src = audioUrl;
       }
 
-      // Analizar audio
       const arrayBuffer = await file.arrayBuffer();
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -55,7 +53,6 @@ function Index() {
         throw new Error("No se detectaron notas. Intenta con otro archivo.");
       }
 
-      // Guardar todas las notas detectadas para usar en tiempo real
       allNotesRef.current = detectedNotes;
 
       const guitarTab = generateGuiTabs(detectedNotes);
@@ -82,12 +79,11 @@ function Index() {
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
 
-      // Mostrar nota actual según el tiempo
       if (allNotesRef.current.length > 0) {
         const currentNotesList = allNotesRef.current.filter(
           (note) =>
             note.time <= audio.currentTime &&
-            note.time + 0.5 > audio.currentTime // Mostrar nota si está dentro de 0.5 seg
+            note.time + 0.5 > audio.currentTime
         );
 
         if (currentNotesList.length > 0) {
@@ -151,18 +147,39 @@ function Index() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      <div className="rounded-2xl border border-border bg-gradient-card p-6 shadow-elegant">
-        <h1 className="text-2xl font-bold">Extrae Tablaturas en Vivo</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Carga tu música y mira las tablaturas mientras suena
+    <div className="relative min-h-screen overflow-hidden">
+      <div className="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full bg-primary/30 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-accent/30 blur-3xl" />
+
+      <header className="relative z-10 mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
+        <div className="flex items-center gap-2">
+          <Music className="h-8 w-8 text-primary" />
+          <span className="text-xl font-bold">TuSolo</span>
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto max-w-3xl px-6 pt-12 pb-24 text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/50 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+          Extrae solos de tus canciones favoritas
+        </div>
+
+        <h1 className="mt-6 text-5xl font-black tracking-tight md:text-7xl">
+          Toca el solo de
+          <br />
+          <span className="bg-gradient-hero bg-clip-text text-transparent">
+            cualquier canción
+          </span>
+        </h1>
+
+        <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
+          Carga un archivo de audio o video y obtén las tablaturas de guitarra, bajo y piano en segundos.
         </p>
 
-        <div className="mt-6 space-y-4">
-          {/* File Upload */}
+        <div className="mx-auto mt-8 max-w-md">
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="cursor-pointer rounded-lg border-2 border-dashed border-border p-12 text-center transition-colors hover:border-primary hover:bg-muted/50"
+            className="cursor-pointer rounded-lg border-2 border-dashed border-border p-8 text-center transition-colors hover:border-primary hover:bg-muted/50"
           >
             <input
               ref={fileInputRef}
@@ -172,32 +189,30 @@ function Index() {
               disabled={isProcessing}
               className="hidden"
             />
-            <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-            <p className="mt-3 font-semibold text-lg">Carga tu archivo</p>
-            <p className="text-sm text-muted-foreground mt-1">MP3, WAV, MP4, etc.</p>
+            <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
+            <p className="mt-3 font-semibold">Carga tu archivo</p>
+            <p className="text-xs text-muted-foreground mt-1">MP3, WAV, MP4, etc.</p>
           </div>
+        </div>
 
-          {isProcessing && (
-            <div className="flex items-center gap-3 rounded-lg bg-muted p-4">
-              <Loader2 className="h-6 w-6 animate-spin flex-shrink-0" />
-              <div>
-                <p className="font-medium">Procesando...</p>
-                <p className="text-xs text-muted-foreground">Analizando notas</p>
-              </div>
-            </div>
-          )}
+        {isProcessing && (
+          <div className="mx-auto mt-6 max-w-md flex items-center justify-center gap-2 rounded-lg bg-muted p-4">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Analizando...</span>
+          </div>
+        )}
 
-          {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-4 text-destructive">
-              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-              <p className="text-sm">{error}</p>
-            </div>
-          )}
+        {error && (
+          <div className="mx-auto mt-6 max-w-md rounded-lg bg-destructive/10 p-4 text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
-          {/* Audio Player */}
-          {tabs.length > 0 && (
-            <div className="space-y-3 rounded-lg border border-border p-4 bg-muted/50">
-              <div className="flex items-center gap-3">
+        {tabs.length > 0 && (
+          <>
+            {/* Reproductor */}
+            <div className="mx-auto mt-8 max-w-md rounded-lg border border-border p-4 bg-muted/50">
+              <div className="flex items-center gap-3 mb-3">
                 <Button
                   size="sm"
                   variant="hero"
@@ -230,43 +245,60 @@ function Index() {
                 {fileName}
               </p>
             </div>
-          )}
-        </div>
-      </div>
 
-      {tabs.length > 0 && (
-        <div className="space-y-4">
-          {/* Current Notes Display */}
-          {(currentNotes.guitar || currentNotes.bass || currentNotes.piano) && (
-            <Card className="p-6 bg-primary/5">
-              <h2 className="font-semibold mb-4">Nota Actual</h2>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 rounded-lg bg-background border border-border">
-                  <p className="text-xs text-muted-foreground mb-2">🎸 Guitarra</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {currentNotes.guitar || "-"}
-                  </p>
-                </div>
-                <div className="text-center p-4 rounded-lg bg-background border border-border">
-                  <p className="text-xs text-muted-foreground mb-2">🎸 Bajo</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {currentNotes.bass || "-"}
-                  </p>
-                </div>
-                <div className="text-center p-4 rounded-lg bg-background border border-border">
-                  <p className="text-xs text-muted-foreground mb-2">🎹 Piano</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {currentNotes.piano || "-"}
-                  </p>
+            {/* Nota Actual */}
+            {(currentNotes.guitar || currentNotes.bass || currentNotes.piano) && (
+              <div className="mx-auto mt-8 max-w-md rounded-lg border border-border bg-primary/5 p-6">
+                <h3 className="font-semibold mb-3 text-sm">Nota Actual</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center p-3 rounded-lg bg-background border border-border">
+                    <p className="text-xs text-muted-foreground mb-1">🎸 Guitarra</p>
+                    <p className="text-xl font-bold text-primary">
+                      {currentNotes.guitar || "-"}
+                    </p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-background border border-border">
+                    <p className="text-xs text-muted-foreground mb-1">🎸 Bajo</p>
+                    <p className="text-xl font-bold text-primary">
+                      {currentNotes.bass || "-"}
+                    </p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-background border border-border">
+                    <p className="text-xs text-muted-foreground mb-1">🎹 Piano</p>
+                    <p className="text-xl font-bold text-primary">
+                      {currentNotes.piano || "-"}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </Card>
-          )}
+            )}
+          </>
+        )}
 
-          {/* Tablaturas */}
-          <div className="flex items-center justify-between">
+        {tabs.length === 0 && !isProcessing && (
+          <div className="mt-20 grid gap-4 sm:grid-cols-3">
+            {[
+              { t: "🎸 Multi-instrumento", d: "Guitarra, bajo, piano" },
+              { t: "⚡ Al instante", d: "Carga tu audio y obtén tablaturas" },
+              { t: "📖 Descargables", d: "Guarda tus tablaturas en .txt" },
+            ].map((f) => (
+              <div
+                key={f.t}
+                className="rounded-2xl border border-border bg-gradient-card p-5 text-left shadow-elegant"
+              >
+                <p className="font-semibold">{f.t}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{f.d}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {tabs.length > 0 && (
+        <div className="relative z-10 mx-auto max-w-3xl px-6 pb-12">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <Music className="h-5 w-5" />
+              <Guitar className="h-5 w-5" />
               <h2 className="font-semibold">Tablaturas Completas</h2>
             </div>
             <Button onClick={downloadTab} size="sm" variant="outline">
@@ -277,12 +309,15 @@ function Index() {
 
           <div className="space-y-4">
             {tabs.map((tab, idx) => (
-              <Card key={idx} className="p-4">
-                <h3 className="font-medium mb-3">{tab.instrument}</h3>
-                <pre className="overflow-x-auto bg-muted p-3 rounded text-xs leading-relaxed whitespace-pre-wrap break-words">
+              <div
+                key={idx}
+                className="rounded-2xl border border-border bg-gradient-card p-5 shadow-elegant"
+              >
+                <h3 className="font-semibold mb-3 text-sm">{tab.instrument}</h3>
+                <pre className="overflow-x-auto bg-muted p-4 rounded text-xs leading-relaxed whitespace-pre-wrap break-words max-h-40">
                   {tab.notation}
                 </pre>
-              </Card>
+              </div>
             ))}
           </div>
         </div>
