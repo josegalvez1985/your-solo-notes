@@ -1,14 +1,25 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/Logo";
 import { Youtube, Guitar, Sparkles } from "lucide-react";
+import { useState } from "react";
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
 function Index() {
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const navigate = useNavigate();
+
+  const handleAnalyzeYoutube = () => {
+    if (youtubeUrl.trim()) {
+      navigate({ to: "/app/analyze", search: { url: youtubeUrl } });
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       <div className="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full bg-primary/30 blur-3xl" />
@@ -16,9 +27,9 @@ function Index() {
 
       <header className="relative z-10 mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
         <Logo />
-        <Link to="/login">
+        {/* <Link to="/login">
           <Button variant="ghost">Entrar</Button>
-        </Link>
+        </Link> */}
       </header>
 
       <main className="relative z-10 mx-auto max-w-3xl px-6 pt-12 pb-24 text-center">
@@ -39,13 +50,28 @@ function Index() {
           Pega un link de YouTube, elige tu instrumento y obtén las notas y tablaturas del solo en segundos.
         </p>
 
-        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link to="/login">
-            <Button size="lg" variant="hero" className="w-full sm:w-auto">
+        <div className="mx-auto mt-8 max-w-md space-y-3">
+          <div className="flex gap-2">
+            <Input
+              type="url"
+              placeholder="https://youtube.com/watch?v=..."
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              className="flex-1"
+              onKeyDown={(e) => e.key === "Enter" && handleAnalyzeYoutube()}
+            />
+            <Button
+              size="lg"
+              variant="hero"
+              onClick={handleAnalyzeYoutube}
+              disabled={!youtubeUrl.trim()}
+            >
               <Youtube className="h-5 w-5" />
-              Empezar gratis
             </Button>
-          </Link>
+          </div>
+        </div>
+
+        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link to="/app/tabs">
             <Button size="lg" variant="outline" className="w-full sm:w-auto">
               <Guitar className="h-5 w-5" />
