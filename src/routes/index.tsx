@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Music, Download, Loader2, AlertCircle, Upload, Play, Pause, Sparkles, Guitar } from "lucide-react";
+import { Music, Download, Loader2, Upload, Sparkles, Guitar } from "lucide-react";
 import { detectPitch, generateGuiTabs, generateBassTabs, generatePianoNotation } from "@/utils/audioAnalyzer";
 
 interface TabLine {
@@ -19,9 +18,7 @@ function Index() {
   const [tabs, setTabs] = useState<TabLine[]>([]);
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [audioUrl, setAudioUrl] = useState<string>("");
   const [currentNotes, setCurrentNotes] = useState<{ [key: string]: string }>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,15 +34,16 @@ function Index() {
     setTabs([]);
     setFileName(file.name);
 
-    try {
-      // Crear la URL para reproducción ANTES de leer como ArrayBuffer
-      const audioUrl = URL.createObjectURL(file);
-      if (audioRef.current) {
-        audioRef.current.src = audioUrl;
-        audioRef.current.load();
-      }
+    // Liberar URL anterior si existe
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+    }
 
-      // Leer el archivo de nuevo para el análisis (ArrayBuffer separado)
+    // Crear URL para el reproductor INMEDIATAMENTE
+    const url = URL.createObjectURL(file);
+    setAudioUrl(url);
+
+    try {
       const arrayBuffer = await file.arrayBuffer();
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -75,74 +73,31 @@ function Index() {
     }
   };
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+  const handleTimeUpdate = () => {
+    if (!audioRef.current || allNotesRef.current.length === 0) return;
 
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
+    const currentTime = audioRef.current.currentTime;
+    const currentNotesList = allNotesRef.current.filter(
+      (note) => note.time <= currentTime && note.time + 0.5 > currentTime
+    );
 
-      if (allNotesRef.current.length > 0) {
-        const currentNotesList = allNotesRef.current.filter(
-          (note) =>
-            note.time <= audio.currentTime &&
-            note.time + 0.5 > audio.currentTime
-        );
-
-        if (currentNotesList.length > 0) {
-          const latest = currentNotesList[currentNotesList.length - 1];
-          setCurrentNotes({
-            guitar: `${latest.note}${latest.octave}`,
-            bass: `${latest.note}${latest.octave}`,
-            piano: `${latest.note}${latest.octave}`,
-          });
-        }
-      }
-    };
-
-    const handleLoadedMetadata = () => {
-      setDuration(audio.duration);
-    };
-
-    const handleCanPlay = () => {
-      console.log("Audio listo para reproducción");
-    };
-
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audio.addEventListener("canplay", handleCanPlay);
-    audio.addEventListener("play", handlePlay);
-    audio.addEventListener("pause", handlePause);
-
-    return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audio.removeEventListener("canplay", handleCanPlay);
-      audio.removeEventListener("play", handlePlay);
-      audio.removeEventListener("pause", handlePause);
-    };
-  }, []);
-
-  const togglePlay = async () => {
-    if (audioRef.current) {
-      try {
-        if (isPlaying) {
-          audioRef.current.pause();
-        } else {
-          const playPromise = audioRef.current.play();
-          if (playPromise !== undefined) {
-            await playPromise;
-          }
-        }
-      } catch (err) {
-        console.error("Error reproduciendo audio:", err);
-        setError("Error al reproducir. Verifica que el archivo sea válido.");
-      }
+    if (currentNotesList.length > 0) {
+      const latest = currentNotesList[currentNotesList.length - 1];
+      setCurrentNotes({
+        guitar: `${latest.note}${latest.octave}`,
+        bass: `${latest.note}${latest.octave}`,
+        piano: `${latest.note}${latest.octave}`,
+      });
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   const downloadTab = () => {
     if (tabs.length === 0) return;
@@ -154,13 +109,6 @@ function Index() {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-  };
-
-  const formatTime = (seconds: number) => {
-    if (!seconds) return "0:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -212,10 +160,24 @@ function Index() {
           </div>
         </div>
 
+        {/* Reproductor nativo HTML5 - SIEMPRE visible cuando hay audio */}
+        {audioUrl && (
+          <div className="mx-auto mt-6 max-w-md rounded-lg border border-border p-4 bg-muted/50">
+            <p className="text-xs text-muted-foreground mb-2 truncate">{fileName}</p>
+            <audio
+              ref={audioRef}
+              src={audioUrl}
+              controls
+              onTimeUpdate={handleTimeUpdate}
+              className="w-full"
+            />
+          </div>
+        )}
+
         {isProcessing && (
           <div className="mx-auto mt-6 max-w-md flex items-center justify-center gap-2 rounded-lg bg-muted p-4">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Analizando...</span>
+            <span className="text-sm">Analizando tablaturas...</span>
           </div>
         )}
 
@@ -225,80 +187,30 @@ function Index() {
           </div>
         )}
 
-        {tabs.length > 0 && (
-          <>
-            {/* Reproductor */}
-            <div className="mx-auto mt-8 max-w-md rounded-lg border border-border p-4 bg-muted/50">
-              <div className="flex items-center gap-3 mb-3">
-                <Button
-                  size="sm"
-                  variant="hero"
-                  onClick={togglePlay}
-                  className="h-10 w-10 p-0"
-                >
-                  {isPlaying ? (
-                    <Pause className="h-5 w-5" />
-                  ) : (
-                    <Play className="h-5 w-5" />
-                  )}
-                </Button>
-                <div className="flex-1">
-                  <div className="h-1 bg-border rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
-                    if (audioRef.current && duration) {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const newTime = (e.clientX - rect.left) / rect.width * duration;
-                      audioRef.current.currentTime = newTime;
-                    }
-                  }}>
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{
-                        width: `${duration ? (currentTime / duration) * 100 : 0}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
-                  </div>
-                </div>
+        {tabs.length > 0 && (currentNotes.guitar || currentNotes.bass || currentNotes.piano) && (
+          <div className="mx-auto mt-8 max-w-md rounded-lg border border-border bg-primary/5 p-6">
+            <h3 className="font-semibold mb-3 text-sm">Nota Actual</h3>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="text-center p-3 rounded-lg bg-background border border-border">
+                <p className="text-xs text-muted-foreground mb-1">🎸 Guitarra</p>
+                <p className="text-xl font-bold text-primary">
+                  {currentNotes.guitar || "-"}
+                </p>
               </div>
-              <audio
-                ref={audioRef}
-                onError={() => setError("Error al cargar el archivo de audio")}
-              />
-              <p className="text-xs text-muted-foreground text-center">
-                {fileName}
-              </p>
+              <div className="text-center p-3 rounded-lg bg-background border border-border">
+                <p className="text-xs text-muted-foreground mb-1">🎸 Bajo</p>
+                <p className="text-xl font-bold text-primary">
+                  {currentNotes.bass || "-"}
+                </p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-background border border-border">
+                <p className="text-xs text-muted-foreground mb-1">🎹 Piano</p>
+                <p className="text-xl font-bold text-primary">
+                  {currentNotes.piano || "-"}
+                </p>
+              </div>
             </div>
-
-            {/* Nota Actual */}
-            {(currentNotes.guitar || currentNotes.bass || currentNotes.piano) && (
-              <div className="mx-auto mt-8 max-w-md rounded-lg border border-border bg-primary/5 p-6">
-                <h3 className="font-semibold mb-3 text-sm">Nota Actual</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-center p-3 rounded-lg bg-background border border-border">
-                    <p className="text-xs text-muted-foreground mb-1">🎸 Guitarra</p>
-                    <p className="text-xl font-bold text-primary">
-                      {currentNotes.guitar || "-"}
-                    </p>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-background border border-border">
-                    <p className="text-xs text-muted-foreground mb-1">🎸 Bajo</p>
-                    <p className="text-xl font-bold text-primary">
-                      {currentNotes.bass || "-"}
-                    </p>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-background border border-border">
-                    <p className="text-xs text-muted-foreground mb-1">🎹 Piano</p>
-                    <p className="text-xl font-bold text-primary">
-                      {currentNotes.piano || "-"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
+          </div>
         )}
 
         {tabs.length === 0 && !isProcessing && (
