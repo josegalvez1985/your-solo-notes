@@ -134,39 +134,56 @@ const computeAutoCorrelationFast = (frame: Float32Array): Float32Array | null =>
 export const generateGuiTabs = (notes: Note[]): string => {
   if (notes.length === 0) return "No se detectaron notas para guitarra";
 
-  const strings: Record<string, (number | string)[]> = {
-    e: [], B: [], G: [], D: [], A: [], E: [],
+  const strings: Record<string, string[]> = {
+    E: [], A: [], D: [], G: [], B: [], e: [],
   };
 
   const standardTuning: Record<string, number> = {
     E: 40, A: 45, D: 50, G: 55, B: 59, e: 64,
   };
 
+  // Agrupar notas cercanas para no saturar
+  const groupedNotes = [];
+  let lastTime = -1;
+
   for (const note of notes) {
+    if (note.time - lastTime > 0.2) {
+      groupedNotes.push(note);
+      lastTime = note.time;
+    }
+  }
+
+  for (const note of groupedNotes) {
     const midiNote = frequencyToMidi(note.frequency);
     let placed = false;
 
-    for (const [string, tuning] of Object.entries(standardTuning)) {
+    // Buscar la cuerda más baja posible
+    for (const stringName of ["E", "A", "D", "G", "B", "e"]) {
+      const tuning = standardTuning[stringName];
       const fret = midiNote - tuning;
       if (fret >= 0 && fret <= 22) {
-        strings[string].push(fret);
+        strings[stringName].push(String(fret));
         placed = true;
         break;
       }
     }
 
     if (!placed) {
-      strings.e.push("-");
+      // Si no cabe en ninguna cuerda, poner guión en todas
+      for (const stringName of ["E", "A", "D", "G", "B", "e"]) {
+        strings[stringName].push("-");
+      }
     }
   }
 
+  // Formatear con guiones entre notas
   let tab = "";
-  tab += "e|" + strings.e.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
-  tab += "B|" + strings.B.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
-  tab += "G|" + strings.G.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
-  tab += "D|" + strings.D.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
-  tab += "A|" + strings.A.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
-  tab += "E|" + strings.E.map((f) => String(f).padStart(2, "-")).join("-") + "|\n";
+  tab += "E |" + strings.E.join("-") + "|\n";
+  tab += "B |" + strings.B.join("-") + "|\n";
+  tab += "G |" + strings.G.join("-") + "|\n";
+  tab += "D |" + strings.D.join("-") + "|\n";
+  tab += "A |" + strings.A.join("-") + "|\n";
+  tab += "E |" + strings.E.join("-") + "|\n";
 
   return tab || "No se pudieron generar tablaturas";
 };
