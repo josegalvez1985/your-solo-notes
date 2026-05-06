@@ -19,10 +19,25 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/../tusolo-release.keystore"
+            def keystorePass = System.getenv("KEYSTORE_PASSWORD") ?: "Casamiento09042022"
+            def keyAliasName = System.getenv("KEY_ALIAS") ?: "tusolo"
+            def keyPass = System.getenv("KEY_PASSWORD") ?: "Casamiento09042022"
+            if (file(keystorePath).exists()) {
+                storeFile file(keystorePath)
+                storePassword keystorePass
+                keyAlias keyAliasName
+                keyPassword keyPass
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
     packagingOptions {
