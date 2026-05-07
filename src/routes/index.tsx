@@ -137,9 +137,23 @@ function Index() {
             )}
           </Button>
           {!isNativeAvailable() && (
-            <p className="text-xs text-muted-foreground">
-              ⚠️ Esta función solo funciona en la app instalada (Android). En el navegador es imposible sin servidor.
-            </p>
+            <div className="rounded-xl border border-border bg-card/60 p-5 text-left backdrop-blur">
+              <p className="text-sm font-semibold mb-1">📱 Instala la app Android</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                La extracción de audio requiere la app nativa. Descárgala e instálala en tu celular.
+              </p>
+              <a
+                href="https://github.com/josegalvez1985/your-solo-notes/releases/latest/download/app-release.apk"
+                download
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Descargar APK
+              </a>
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                Requiere Android 6.0+. Activa "Instalar apps de fuentes desconocidas" en ajustes.
+              </p>
+            </div>
           )}
         </div>
 
