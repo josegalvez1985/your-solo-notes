@@ -94,7 +94,7 @@ public class YoutubePlugin extends Plugin {
                 call.resolve(ret);
             } catch (Throwable e) {
                 final String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                call.reject(msg, e);
+                call.reject(msg);
             }
         }).start();
     }
