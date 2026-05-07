@@ -1,9 +1,11 @@
-import { createRouter } from "@tanstack/react-router";
+import { createRouter, RootRoute, createHashHistory } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+
+const hashHistory = createHashHistory();
 
 export const router = createRouter({
   routeTree,
-  basePath: "/your-solo-notes",
+  history: hashHistory,
   scrollRestoration: true,
   defaultPreloadStaleTime: 0,
 });
