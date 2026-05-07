@@ -5,6 +5,7 @@ import tsConfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  base: "/your-solo-notes/",
   plugins: [
     tsConfigPaths(),
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
