@@ -1,34 +1,83 @@
-import { useEffect, useRef } from "react";
+import { useMemo } from "react";
+import type { TabSegment } from "@/utils/audioAnalyzer";
 
 interface TabRendererProps {
-  tabNotation: string;
-  instrument: string;
+  segments: TabSegment[];
   currentTime: number;
+  onSeek?: (time: number) => void;
 }
 
-export function TabRenderer({ tabNotation, instrument, currentTime }: TabRendererProps) {
-  const preRef = useRef<HTMLPreElement>(null);
+export function TabRenderer({ segments, currentTime, onSeek }: TabRendererProps) {
+  const activeSegmentIdx = useMemo(() => {
+    for (let i = 0; i < segments.length; i++) {
+      if (currentTime >= segments[i].startTime && currentTime <= segments[i].endTime) {
+        return i;
+      }
+    }
+    return -1;
+  }, [segments, currentTime]);
 
-  useEffect(() => {
-    if (!preRef.current || !tabNotation) return;
-
-    const lines = tabNotation.split("\n");
-    const charWidth = 8;
-    const estimatedDuration = lines[0]?.length || 1;
-    const scrollPixels = (currentTime / (estimatedDuration / 20)) * charWidth;
-
-    preRef.current.scrollLeft = Math.max(0, scrollPixels);
-  }, [currentTime, tabNotation]);
+  if (segments.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+        No se generó tablatura para este instrumento.
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full bg-muted rounded-lg border border-border overflow-x-auto">
-      <pre
-        ref={preRef}
-        className="text-xs leading-relaxed whitespace-pre font-mono p-4 transition-all duration-100"
-        style={{ minHeight: "120px" }}
-      >
-        {tabNotation}
-      </pre>
+    <div className="space-y-3">
+      {segments.map((seg, idx) => {
+        const isActive = idx === activeSegmentIdx;
+        const activePos = isActive
+          ? seg.positions.find(
+              (p, i) =>
+                currentTime >= p.time &&
+                (i === seg.positions.length - 1 || currentTime < seg.positions[i + 1].time),
+            )
+          : undefined;
+
+        return (
+          <div
+            key={idx}
+            className={`relative rounded-lg border overflow-x-auto transition-colors ${
+              isActive ? "border-primary bg-primary/5" : "border-border bg-muted/40"
+            }`}
+          >
+            <div className="flex items-center justify-between px-3 pt-2 text-[10px] text-muted-foreground">
+              <span>
+                {formatTime(seg.startTime)} – {formatTime(seg.endTime)}
+              </span>
+              {onSeek && (
+                <button
+                  onClick={() => onSeek(seg.startTime)}
+                  className="text-primary hover:underline"
+                  type="button"
+                >
+                  ▶ ir a este compás
+                </button>
+              )}
+            </div>
+            <pre className="relative font-mono text-xs leading-relaxed whitespace-pre p-3">
+              {seg.notation}
+              {isActive && activePos && (
+                <span
+                  className="pointer-events-none absolute top-2 bottom-2 w-[2px] bg-primary animate-pulse"
+                  style={{
+                    left: `calc(${0.75}rem + ${(activePos.columnStart + 2) * 0.6}em)`,
+                  }}
+                />
+              )}
+            </pre>
+          </div>
+        );
+      })}
     </div>
   );
+}
+
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
